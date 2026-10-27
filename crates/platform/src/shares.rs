@@ -106,11 +106,11 @@ pub async fn enumerate(ip: IpAddr) -> ShareDiscovery {
             }
             #[cfg(not(windows))]
             {
-                return parse_smbclient(
+                parse_smbclient(
                     success,
                     &String::from_utf8_lossy(&out),
                     &String::from_utf8_lossy(&err),
-                );
+                )
             }
             #[cfg(windows)]
             result(
