@@ -1,5 +1,15 @@
 # Implementation status
 
+## Latest snapshot — 2026-10-27
+
+Local Windows validation: **62 tests passed, one native SYN test ignored**; formatting, workspace Clippy with warnings denied and packaging source checks passed. The current schemas are SQLite **5** and JSON export **4**. Device details use Overview, Ports, Discovery and Shares tabs, and scan controls collapse after session loading/start.
+
+Native Linux/macOS runtime and installation checks, physical-device interoperability and privileged SYN validation remain outstanding. CI configuration is not evidence of a successful run; consult [GitHub Actions](https://github.com/Gorke07/PortSpecter/actions/workflows/ci.yml) for remote results.
+
+The sections below are chronological implementation notes. Older test counts and schema versions describe earlier milestones, not the current build. See [ROADMAP.md](ROADMAP.md) for current release gates.
+
+## Earlier milestones
+
 This is the first working implementation milestone, not the completed release roadmap.
 
 ## Implemented

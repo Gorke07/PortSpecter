@@ -1,0 +1,23 @@
+name: Feature request / Özellik önerisi
+description: Describe a use case and the behavior you need.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What task is difficult today? English and Turkish are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired result and alternatives you have considered.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Platform and network context
+      description: Mention OS, protocols and local/routed/VPN constraints without private identifiers.

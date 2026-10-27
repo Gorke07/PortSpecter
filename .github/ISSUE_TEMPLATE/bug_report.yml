@@ -1,0 +1,39 @@
+name: Bug report / Hata bildirimi
+description: Report a reproducible problem with PortSpecter.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "English and Turkish are welcome. Redact network identifiers and secrets. For vulnerabilities, follow SECURITY.md instead of posting details here."
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "Commit hash or application version"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and CPU architecture
+      placeholder: "Windows 11 x64 / Ubuntu 24.04 x64 / macOS ARM64"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include method, port preset, discovery settings and local/routed/VPN context. Use synthetic addresses.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Optional error text or screenshots. Do not attach real databases, credentials or full network exports.
