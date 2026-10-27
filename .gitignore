@@ -1,0 +1,31 @@
+/target/
+# Keep the shared design specification, exclude local tool state.
+/.superdesign/*
+!/.superdesign/design-system.md
+/artifacts/
+/dist/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+__pycache__/
+*.pyc
+
+# Local secrets and machine-specific configuration.
+.env
+.env.*
+!.env.example
+!.env.sample
+*.key
+*.p12
+*.pfx
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

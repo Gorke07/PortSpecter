@@ -1,0 +1,21 @@
+[package]
+name = "portspecter-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+portspecter-domain.workspace = true
+portspecter-probe.workspace = true
+portspecter-platform.workspace = true
+portspecter-storage.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+futures = "0.3"
+ipnet = "2"
+
+[dev-dependencies]
+serde_json.workspace = true

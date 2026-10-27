@@ -1,0 +1,27 @@
+[workspace]
+members = ["crates/domain", "crates/core", "crates/platform", "crates/probe", "crates/storage", "crates/desktop"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "sync", "macros", "io-util"] }
+tokio-util = "0.7"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+portspecter-domain = { path = "crates/domain" }
+portspecter-core = { path = "crates/core" }
+portspecter-platform = { path = "crates/platform" }
+portspecter-probe = { path = "crates/probe" }
+portspecter-storage = { path = "crates/storage" }
+
+[profile.release]
+lto = "thin"
+strip = true

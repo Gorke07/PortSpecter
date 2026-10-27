@@ -1,0 +1,17 @@
+[package]
+name = "portspecter-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+portspecter-domain.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+
+[dev-dependencies]
+tokio.workspace = true

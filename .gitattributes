@@ -1,0 +1,7 @@
+*.sh text eol=lf
+packaging/linux/portspecter-packet-access text eol=lf
+packaging/macos/packet-access text eol=lf
+packaging/macos/preinstall text eol=lf
+packaging/macos/postinstall text eol=lf
+*.plist text eol=lf
+*.desktop text eol=lf

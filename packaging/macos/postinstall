@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+[ "${3:-/}" = / ] || exit 1
+state=/var/db/portspecter-packet-access
+account=$(cat "$state/install-user")
+case "$account" in ''|root|loginwindow|_mbsetupuser|*[!a-zA-Z0-9._-]*) exit 1 ;; esac
+id "$account" >/dev/null
+if ! dscl . -read /Groups/access_bpf >/dev/null 2>&1; then
+    dseditgroup -o create -r 'Packet capture access' access_bpf
+fi
+chmod 755 '/Library/Application Support/PortSpecter/PacketAccess/packet-access'
+chown root:wheel '/Library/Application Support/PortSpecter/PacketAccess/packet-access'
+chmod 644 /Library/LaunchDaemons/org.portspecter.packet-access.plist
+chown root:wheel /Library/LaunchDaemons/org.portspecter.packet-access.plist
+launchctl bootout system/org.portspecter.packet-access 2>/dev/null || true
+launchctl bootstrap system /Library/LaunchDaemons/org.portspecter.packet-access.plist
+'/Library/Application Support/PortSpecter/PacketAccess/packet-access' apply
+umask 077
+if ! dseditgroup -o checkmember -m "$account" access_bpf >/dev/null 2>&1; then
+    # Record before granting access, so removal can undo an interrupted install.
+    if ! grep -Fxq "$account" "$state/added-users" 2>/dev/null; then
+        printf '%s\n' "$account" >> "$state/added-users"
+    fi
+    dseditgroup -o edit -a "$account" -t user access_bpf
+fi
+rm -f "$state/install-user"
+echo 'Packet access enabled for the installing desktop user. Log out and back in, then open PortSpecter normally.'

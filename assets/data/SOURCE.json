@@ -1,0 +1,10 @@
+{
+  "source": "MACLookup",
+  "page": "https://maclookup.app/downloads/json-database",
+  "terms": "https://maclookup.app/terms-and-conditions",
+  "database_updated": "2026-10-24",
+  "downloaded": "2026-10-26",
+  "records": 59170,
+  "bytes": 7423616,
+  "sha256": "A5FC2355DB9C6F73C64652A31E72D8C333638BFF8743CAE43C2B7B801B4DA9F8"
+}

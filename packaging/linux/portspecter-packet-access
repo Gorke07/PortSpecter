@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+binary=/usr/bin/portspecter
+case "${1:-status}" in
+    status)
+        current=$(getcap "$binary")
+        if [ -n "$current" ]; then printf '%s\n' "$current"; else echo 'SYN packet access is disabled.'; fi
+        exit 0 ;;
+    enable|disable) ;;
+    *) echo 'Usage: portspecter-packet-access [status|enable|disable]' >&2; exit 2 ;;
+esac
+[ "$(id -u)" = 0 ] || { echo 'Run enable/disable with sudo.' >&2; exit 1; }
+[ -f "$binary" ] && [ ! -L "$binary" ] || { echo 'Packaged executable missing or symlinked.' >&2; exit 1; }
+[ "$(stat -c %u "$binary")" = 0 ] || { echo 'Executable must be owned by root.' >&2; exit 1; }
+mode=$(stat -c %a "$binary")
+[ "$((0$mode & 022))" = 0 ] || { echo 'Executable must not be writable by group/others.' >&2; exit 1; }
+current=$(getcap "$binary")
+case "$current" in
+    ''|"$binary cap_net_raw=ep") ;;
+    *) echo 'Executable has other administrator-configured capabilities; leaving them unchanged.' >&2; exit 1 ;;
+esac
+if [ "$1" = enable ]; then
+    setcap cap_net_raw=ep "$binary"
+    setcap -v cap_net_raw=ep "$binary"
+    echo 'SYN packet access enabled for PortSpecter. Launch normally, without sudo.'
+else
+    if [ -n "$(getcap "$binary")" ]; then setcap -r "$binary"; fi
+    echo 'SYN packet access disabled. TCP connect and UDP remain available.'
+fi

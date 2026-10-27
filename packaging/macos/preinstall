@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+[ "${3:-/}" = / ] || { echo 'Packet access can only be installed on the running system.' >&2; exit 1; }
+account=$(stat -f %Su /dev/console)
+case "$account" in ''|root|loginwindow|_mbsetupuser|*[!a-zA-Z0-9._-]*)
+    echo 'Log in to a regular macOS desktop account before installing packet access.' >&2; exit 1 ;;
+esac
+id "$account" >/dev/null
+for directory in '/Library/Application Support/PortSpecter' '/Library/Application Support/PortSpecter/PacketAccess'; do
+    [ ! -L "$directory" ] || exit 1
+    if [ -e "$directory" ]; then
+        [ -d "$directory" ] && [ "$(stat -f %u "$directory")" = 0 ] || exit 1
+        mode=$(stat -f %Lp "$directory")
+        [ "$((0$mode & 022))" = 0 ] || exit 1
+    fi
+done
+[ ! -L '/Library/Application Support/PortSpecter/PacketAccess/packet-access' ] || exit 1
+[ ! -L /Library/LaunchDaemons/org.portspecter.packet-access.plist ] || exit 1
+state=/var/db/portspecter-packet-access
+[ ! -L "$state" ] || exit 1
+if [ -e "$state" ]; then
+    [ -d "$state" ] && [ "$(stat -f %u "$state")" = 0 ] || exit 1
+    mode=$(stat -f %Lp "$state")
+    [ "$((0$mode & 022))" = 0 ] || exit 1
+fi
+[ ! -L "$state/install-user" ] && [ ! -L "$state/added-users" ] || exit 1
+install -d -o root -g wheel -m 700 "$state"
+umask 077
+printf '%s\n' "$account" > "$state/install-user"

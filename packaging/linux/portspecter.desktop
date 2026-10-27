@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PortSpecter
+Comment=Network discovery and port scanning
+Exec=portspecter
+Terminal=false
+Categories=Network;System;
+StartupNotify=true

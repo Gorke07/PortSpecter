@@ -1,0 +1,13 @@
+PortSpecter Community
+Copyright 2026 PortSpecter contributors
+
+MAC vendor data: MACLookup (https://maclookup.app/downloads/json-database).
+Snapshot updated 24 October 2026; retrieved 26 October 2026.
+MACLookup terms: https://maclookup.app/terms-and-conditions.
+Vendor assignments are observations of prefix registration, not verified device identities.
+The application Apache-2.0 license does not relicense this third-party dataset.
+
+Inter and JetBrains Mono are distributed under the SIL Open Font License 1.1.
+Their full license texts are included in assets/fonts/.
+
+Other third-party Rust dependencies retain their respective licenses.
