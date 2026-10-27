@@ -12,7 +12,10 @@ case "${1:-status}" in
     *) echo 'Usage: portspecter-packet-access [status|enable|disable]' >&2; exit 2 ;;
 esac
 [ "$(id -u)" = 0 ] || { echo 'Run enable/disable with sudo.' >&2; exit 1; }
-[ -f "$binary" ] && [ ! -L "$binary" ] || { echo 'Packaged executable missing or symlinked.' >&2; exit 1; }
+if [ ! -f "$binary" ] || [ -L "$binary" ]; then
+    echo 'Packaged executable missing or symlinked.' >&2
+    exit 1
+fi
 [ "$(stat -c %u "$binary")" = 0 ] || { echo 'Executable must be owned by root.' >&2; exit 1; }
 mode=$(stat -c %a "$binary")
 [ "$((0$mode & 022))" = 0 ] || { echo 'Executable must not be writable by group/others.' >&2; exit 1; }

@@ -11,7 +11,9 @@ case "${1:-}" in
         # Use the shared capture group rather than making BPF world-writable.
         # The daemon also handles nodes created after login or reboot.
         for device in /dev/bpf*; do
-            [ -c "$device" ] && [ ! -L "$device" ] || continue
+            if [ ! -c "$device" ] || [ -L "$device" ]; then
+                continue
+            fi
             chgrp access_bpf "$device"
             chmod g+rw "$device"
         done
