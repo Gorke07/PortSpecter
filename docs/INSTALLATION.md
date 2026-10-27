@@ -55,7 +55,7 @@ Removal unloads the PortSpecter daemon and removes only group memberships this i
 
 macOS development builds are ad-hoc signed. To use your own signing certificates, set `PORTSPECTER_SIGN_IDENTITY` (Developer ID Application) and `PORTSPECTER_INSTALLER_IDENTITY` (Developer ID Installer). The script does not upload or notarize artifacts. A public macOS release still requires appropriate signing, notarization and native installation/runtime verification; no Gatekeeper bypass is included.
 
-Packaging CI builds development packages on Ubuntu, Apple Silicon macOS and Intel macOS and uploads them as workflow artifacts. These steps are configured, not evidence of a successful remote CI run. Local Windows validation covers source checks, shell syntax, Python compilation and plist structure; actual package creation, installation, removal and SYN access must be tested on the target OS.
+Packaging CI builds development packages on Ubuntu and Apple Silicon macOS and uploads them as workflow artifacts. These steps are configured, not evidence of a successful remote CI run. Local Windows validation covers source checks, shell syntax, Python compilation and plist structure; actual package creation, installation, removal and SYN access must be tested on the target OS.
 
 ## Application icons
 
