@@ -8,7 +8,7 @@
 
 PortSpecter is a native **Rust + Iced** desktop application for multi-subnet discovery and port scanning. Inspect device identity, service evidence, camera discovery and shared folders in one local workspace, with Turkish/English interfaces and dark/light themes.
 
-**Development preview:** Windows has been exercised locally. Linux/macOS support and packaging are implemented; native runtime and installer verification remain release work. IPv4 SYN is experimental. See [current status](docs/STATUS.md).
+**Early release:** Windows has been exercised locally. Linux/macOS support and packaging are implemented; native runtime and installer verification remain outstanding. IPv4 SYN is experimental. See [current status](docs/STATUS.md).
 
 [User guide](docs/USAGE.md) | [Installation](docs/INSTALLATION.md) | [Roadmap](docs/ROADMAP.md) | [Turkish guide](README.tr.md)
 
@@ -29,6 +29,10 @@ PortSpecter is a native **Rust + Iced** desktop application for multi-subnet dis
 No cloud account or Nmap installation is needed. Scan data stays local. Optional SSDP discovery reads device descriptions from the same target; network activity follows configured scan and discovery settings.
 
 ## Getting started
+
+For Windows x64, download `PortSpecter-v0.1.0-windows-x64-setup.exe` or `PortSpecter-v0.1.0-windows-x64-portable.zip` from [GitHub Releases](https://github.com/Gorke07/PortSpecter/releases). Run the setup EXE for a per-user installation, or extract the ZIP and run `portspecter.exe`. The binaries are unsigned and Windows may show a warning. The portable app stores its data in the same per-user location as the installed app; see [installation](docs/INSTALLATION.md#windows-downloads) for details and checksum verification. Npcap is separate and only needed for experimental SYN scanning.
+
+To build from source:
 
 Install stable Rust **1.99+** and the [platform prerequisites](docs/INSTALLATION.md#build-from-source), then:
 
@@ -55,9 +59,9 @@ Host-bit CIDRs are normalized: `192.168.10.1/24` selects usable addresses in `19
 | Desktop / TCP connect / UDP | Locally exercised | Runtime validation pending | Runtime validation pending |
 | IPv4 SYN | Npcap + capture permission | libpcap + capture/injection permission | System libpcap + BPF access |
 | SMB enumeration | Native API | `smbclient` | `smbclient` |
-| Packaging | Build EXE from source | Debian package script | App/DMG and optional BPF setup script |
+| Packaging | Setup EXE and portable ZIP | Debian package script | App/DMG and optional BPF setup script |
 
-Npcap is installed separately and is not bundled. Native SYN, physical-device interoperability, macOS signing/notarization and native installer testing remain release gates. [Installation and permissions](docs/INSTALLATION.md)
+Npcap is installed separately and is not bundled. Native SYN, physical-device interoperability, macOS signing/notarization and native installer testing remain validation work for a stable release. [Installation and permissions](docs/INSTALLATION.md)
 
 ## Understand the results
 
@@ -76,7 +80,7 @@ Npcap is installed separately and is not bundled. Native SYN, physical-device in
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Missing devices, identities, permissions and scan speed |
 | [Architecture](docs/ARCHITECTURE.md) | Workspace responsibilities and scan data flow |
 | [Roadmap](docs/ROADMAP.md) | Release gates and future work |
-| [Changelog](CHANGELOG.md) | Changes in the development version |
+| [Changelog](CHANGELOG.md) | Release notes and known limitations |
 | [Contributing](CONTRIBUTING.md) | Workflow, checks and pull requests |
 | [Community conduct](CODE_OF_CONDUCT.md) | Participation and moderation expectations |
 | [Security](SECURITY.md) | Security reporting and data handling |

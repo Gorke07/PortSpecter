@@ -2,6 +2,17 @@
 
 [Back to README](../README.md)
 
+## Windows downloads
+
+On Windows x64, download the desired 0.1.0 asset from [GitHub Releases](https://github.com/Gorke07/PortSpecter/releases):
+
+- **Setup:** run `PortSpecter-v0.1.0-windows-x64-setup.exe` and follow the installer. It installs for the current user and provides an uninstaller.
+- **Portable:** extract `PortSpecter-v0.1.0-windows-x64-portable.zip` and run `portspecter.exe` from the extracted folder; no installer is required.
+
+The installer and application are unsigned, so Windows may display a security warning. Download `SHA256SUMS.txt` from the same release and compare the relevant SHA-256 value to `Get-FileHash -Algorithm SHA256 <path-to-download>` in PowerShell.
+
+Both editions use `%LOCALAPPDATA%\PortSpecter\PortSpecter\data` by default for the local database and settings; the portable ZIP does not keep data alongside the executable. Set `PORTSPECTER_DATA_DIR` before launching to use another data directory. Npcap is not bundled: install it separately only if experimental IPv4 SYN scanning is needed. TCP connect and UDP scans do not require Npcap.
+
 ## Build from source
 
 Install stable Rust (1.99 or newer). On Windows install Visual Studio C++ Build Tools and a Windows SDK. On Ubuntu 24.04 install `build-essential pkg-config libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libgl1-mesa-dev libdbus-1-dev iproute2 iputils-ping`. macOS requires Xcode command line tools.

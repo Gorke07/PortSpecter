@@ -8,7 +8,7 @@ PortSpecter; cihaz adlarını, MAC bilgilerini, açık portları, kamera keşifl
 
 ## Geliştirme durumu
 
-Proje geliştirme önizlemesidir. Windows üzerinde yerel kontroller yapıldı. Linux/macOS kodu ve paketleme betikleri mevcut; gerçek platformlarda çalışma ve kurulum doğrulaması sürüm öncesi yapılacak işler arasındadır. IPv4 SYN deneyseldir. [Doğrulama ayrıntıları](docs/STATUS.md)
+Bu erken sürümde Windows üzerinde yerel kontroller yapıldı. Linux/macOS kodu ve paketleme betikleri mevcut; gerçek platformlarda çalışma ve kurulum doğrulaması henüz tamamlanmadı. IPv4 SYN deneyseldir. [Doğrulama ayrıntıları](docs/STATUS.md)
 
 ## Özellikler
 
@@ -25,6 +25,10 @@ Proje geliştirme önizlemesidir. Windows üzerinde yerel kontroller yapıldı. 
 - 1–256 worker thread; ayrı eşzamanlılık, hız, zaman aşımı ve tekrar sınırları.
 
 ## Başlangıç
+
+Windows x64 için [GitHub Releases](https://github.com/Gorke07/PortSpecter/releases) sayfasından `PortSpecter-v0.1.0-windows-x64-setup.exe` veya `PortSpecter-v0.1.0-windows-x64-portable.zip` dosyasını indirin. Kullanıcı hesabınıza kurmak için kurulum EXE dosyasını çalıştırın; taşınabilir sürüm için ZIP dosyasını açıp `portspecter.exe` dosyasını çalıştırın. Dosyalar imzasızdır; Windows uyarı gösterebilir. Taşınabilir sürüm verileri de kurulu sürümle aynı kullanıcı klasöründe saklanır; ayrıntılar ve sağlama toplamı doğrulaması için [kurulum rehberine](docs/INSTALLATION.md#windows-downloads) bakın. Npcap ayrı kurulur ve yalnızca deneysel SYN taraması için gereklidir.
+
+Kaynak koddan çalıştırmak için:
 
 Rust **1.99+** ve [işletim sistemi bağımlılıklarını](docs/INSTALLATION.md#build-from-source) kurun:
 

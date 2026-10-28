@@ -1,8 +1,8 @@
 # Changelog
 
-User-visible changes are recorded here. The current application version is `0.1.0` in the workspace manifest; this does not imply a published stable release.
+User-visible changes are recorded here.
 
-## Unreleased
+## 0.1.0
 
 ### Added
 
@@ -14,7 +14,7 @@ User-visible changes are recorded here. The current application version is `0.1.
 - ONVIF, Hikvision SADP, Dahua, DNS-SD and SSDP device discovery.
 - SMB disk-share listing, including hidden shares returned by the server.
 - SQLite history, comparisons, saved profiles, queue and CSV/JSON exports.
-- Platform packaging scripts, CI matrix, contribution guides and GitHub issue/PR templates.
+- Windows installer and portable packages, Windows CI, platform packaging scripts, contribution guides and GitHub issue/PR templates.
 
 ### Improved
 
@@ -28,5 +28,6 @@ User-visible changes are recorded here. The current application version is `0.1.
 ### Known limitations
 
 - Native Linux/macOS runtime, installer and physical-device interoperability checks remain outstanding.
+- macOS signing and notarization for distribution remain outstanding.
 - SYN is IPv4-only and needs packet capture permissions; its native integration test is opt-in.
 - Scoped IPv6 link-local targets and automatic cross-VLAN multicast discovery are not supported.
