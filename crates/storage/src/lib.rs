@@ -435,11 +435,18 @@ mod tests {
                 "127.0.0.1".parse().unwrap(),
                 PortObservation {
                     port: 22,
-                    state: PortState::Closed,
+                    state: PortState::Open,
                     elapsed_ms: 1,
                     observed_at: chrono::Utc::now(),
                     error: None,
-                    service: None,
+                    service: Some(ServiceObservation {
+                        name: "SSH".into(),
+                        verified: true,
+                        product: Some("OpenSSH".into()),
+                        version: Some("9.9p2".into()),
+                        detection: Some("protocol-response".into()),
+                        ..Default::default()
+                    }),
                 },
             )],
             1,
@@ -527,7 +534,10 @@ mod tests {
             restored.hosts[0].hostname_info.as_ref().unwrap().source,
             "netbios_node_status"
         );
-        assert_eq!(restored.hosts[0].ports[0].state, PortState::Closed);
+        assert_eq!(restored.hosts[0].ports[0].state, PortState::Open);
+        let service = restored.hosts[0].ports[0].service.as_ref().unwrap();
+        assert!(service.verified);
+        assert_eq!(service.version.as_deref(), Some("9.9p2"));
         assert_eq!(restored.status, SessionStatus::Completed);
         assert_eq!(db.list().await.unwrap().len(), 1);
         db.delete(&session.id.to_string()).await.unwrap();

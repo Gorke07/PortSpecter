@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    Health(u64, Box<portspecter_platform::health::HealthReport>),
     Ready {
         path: PathBuf,
         vendors: usize,
@@ -37,6 +38,8 @@ pub enum Event {
     },
 }
 pub enum Command {
+    Health(u64, std::net::SocketAddr, String),
+    CancelHealth,
     Prepare {
         targets: String,
         ports: String,
@@ -145,9 +148,27 @@ pub fn launch() -> (mpsc::Sender<Command>, mpsc::Receiver<Event>) {
                         .await
                         .ok();
                     let mut active: Option<(tokio::task::JoinHandle<()>, ScanControl)> = None;
+                    let mut health_task: Option<tokio::task::JoinHandle<()>> = None;
                     while let Some(command) = receiver.recv().await {
                         let response: anyhow::Result<()> = async {
                             match command {
+                                Command::Health(id, target, dns) => {
+                                    if let Some(task) = health_task.take() {
+                                        task.abort();
+                                    }
+                                    let events = events.clone();
+                                    health_task = Some(tokio::spawn(async move {
+                                        let report =
+                                            portspecter_platform::health::run(target, dns).await;
+                                        let _ =
+                                            events.send(Event::Health(id, Box::new(report))).await;
+                                    }));
+                                }
+                                Command::CancelHealth => {
+                                    if let Some(task) = health_task.take() {
+                                        task.abort();
+                                    }
+                                }
                                 Command::InspectRoute {
                                     session_id,
                                     ip,
@@ -246,6 +267,9 @@ pub fn launch() -> (mpsc::Sender<Command>, mpsc::Receiver<Event>) {
                                         events.send(Event::History(storage.list().await?)).await;
                                 }
                                 Command::Shutdown => {
+                                    if let Some(task) = health_task.take() {
+                                        task.abort();
+                                    }
                                     if let Some((task, control)) = active.take() {
                                         control.cancel.cancel();
                                         let _ = task.await;
@@ -379,6 +403,9 @@ pub fn launch() -> (mpsc::Sender<Command>, mpsc::Receiver<Event>) {
                         if let Err(e) = response {
                             let _ = events.send(Event::Failure(format!("{e:#}"))).await;
                         }
+                    }
+                    if let Some(task) = health_task.take() {
+                        task.abort();
                     }
                     if let Some((task, control)) = active {
                         control.cancel.cancel();

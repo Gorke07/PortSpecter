@@ -18,6 +18,9 @@ Proje geliştirme önizlemesidir. Windows üzerinde yerel kontroller yapıldı. 
 - ONVIF, Hikvision SADP, Dahua, DNS-SD/Bonjour ve SSDP/UPnP keşfi.
 - Sunucunun izin verdiği gizli paylaşımlar dahil SMB klasör listesi.
 - Özet, Portlar, Keşif ve Paylaşım sekmeleri; filtreleme ve arama.
+- Yanıttan servis/yazılım sürümü tanıma; kaynakları birleştiren ve çelişkileri gösteren cihaz kimliği.
+- İsteğe bağlı ağ sağlık testi: rota, DHCP yapılandırması, DNS/TCP erişimi, ICMP gecikme/kayıp/jitter.
+- Cihaz işlemleri: HTTP/HTTPS, SSH, RDP, SMB istemcisi açma ve Wake-on-LAN paketi gönderme.
 - SQLite geçmişi, tarama karşılaştırması, profiller, kuyruk ve CSV/JSON dışa aktarma.
 - 1–256 worker thread; ayrı eşzamanlılık, hız, zaman aşımı ve tekrar sınırları.
 

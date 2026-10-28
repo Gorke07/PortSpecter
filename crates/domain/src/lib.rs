@@ -1,4 +1,6 @@
 mod device;
+mod identity;
+pub use identity::*;
 mod export;
 mod plan;
 mod vendor;
@@ -50,6 +52,14 @@ pub struct ServiceObservation {
     pub name: String,
     pub evidence: String,
     pub tls: Option<TlsObservation>,
+    #[serde(default)]
+    pub verified: bool,
+    #[serde(default)]
+    pub product: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub detection: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

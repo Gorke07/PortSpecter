@@ -17,6 +17,7 @@ use tokio::{
 
 pub mod cameras;
 pub mod discovery;
+mod fingerprint;
 mod local_names;
 mod netbios;
 pub mod udp;
@@ -81,6 +82,7 @@ pub async fn inspect(
         name: port_hint(port).into(),
         evidence: "Port-number hint only; protocol not verified".into(),
         tls: None,
+        ..Default::default()
     };
     tokio::time::timeout(
         Duration::from_secs(5),
@@ -102,22 +104,114 @@ async fn connect(ip: IpAddr, port: u16, source: Option<IpAddr>) -> std::io::Resu
     socket.connect(std::net::SocketAddr::new(ip, port)).await
 }
 
+async fn read_prefix<S: AsyncReadExt + Unpin>(stream: &mut S, wait: Duration) -> Vec<u8> {
+    let mut data = Vec::new();
+    let _ = tokio::time::timeout(wait, async {
+        while data.len() < 16_384 {
+            let mut buf = [0u8; 1024];
+            let n = stream.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            data.extend_from_slice(&buf[..n]);
+            if data.windows(4).any(|w| w == b"\r\n\r\n") {
+                break;
+            }
+            if !data.starts_with(b"HTTP/")
+                && data.contains(&b'\n')
+                && fingerprint::classify(&data).is_some()
+            {
+                break;
+            }
+        }
+        Ok::<_, std::io::Error>(())
+    })
+    .await;
+    data
+}
+
+async fn http_probe<S: AsyncReadExt + AsyncWriteExt + Unpin>(
+    stream: &mut S,
+    ip: IpAddr,
+    port: u16,
+    hostname: Option<&str>,
+) -> Option<ServiceObservation> {
+    let fallback = if ip.is_ipv6() {
+        format!("[{ip}]")
+    } else {
+        ip.to_string()
+    };
+    let host = hostname
+        .filter(|s| {
+            !s.is_empty()
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b".-".contains(&b))
+        })
+        .unwrap_or(&fallback);
+    let request = format!(
+        "HEAD / HTTP/1.0\r\nHost: {host}:{port}\r\nUser-Agent: PortSpecter/0.1\r\nConnection: close\r\n\r\n"
+    );
+    tokio::time::timeout(
+        Duration::from_millis(500),
+        stream.write_all(request.as_bytes()),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    let bytes = read_prefix(stream, Duration::from_millis(800)).await;
+    fingerprint::classify(&bytes).filter(|s| s.name == "HTTP")
+}
+
 async fn inspect_inner(
     ip: IpAddr,
     port: u16,
     hostname: Option<String>,
     source: Option<IpAddr>,
 ) -> ServiceObservation {
-    let mut result = ServiceObservation {
+    let fallback = || ServiceObservation {
         name: port_hint(port).into(),
         evidence: "Port-number hint only; protocol not verified".into(),
-        tls: None,
+        ..Default::default()
     };
-    let Ok(mut stream) = connect(ip, port, source).await else {
-        result.evidence = "Service connection failed after port discovery".into();
-        return result;
+    let Ok(Ok(mut stream)) =
+        tokio::time::timeout(Duration::from_secs(1), connect(ip, port, source)).await
+    else {
+        return fallback();
     };
-    if matches!(port, 443 | 465 | 636 | 853 | 993 | 995 | 8443) {
+    let tls_port = matches!(port, 443 | 465 | 636 | 853 | 993 | 995 | 8443);
+    if !tls_port {
+        let bytes = read_prefix(&mut stream, Duration::from_millis(500)).await;
+        if let Some(result) = fingerprint::classify(&bytes) {
+            return result;
+        }
+        if !bytes.is_empty() {
+            return ServiceObservation {
+                name: "Banner".into(),
+                evidence: String::from_utf8_lossy(&bytes)
+                    .chars()
+                    .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
+                    .take(4096)
+                    .collect(),
+                detection: Some("unclassified banner".into()),
+                ..Default::default()
+            };
+        }
+        // Never send generic probes to raw printer ports (which can print the payload).
+        if matches!(port, 9100..=9107) {
+            return fallback();
+        }
+        if let Some(result) = http_probe(&mut stream, ip, port, hostname.as_deref()).await {
+            return result;
+        }
+        let Ok(Ok(new_stream)) =
+            tokio::time::timeout(Duration::from_millis(700), connect(ip, port, source)).await
+        else {
+            return fallback();
+        };
+        stream = new_stream;
+    }
+    tokio::time::timeout(Duration::from_millis(1800), async {
+        let mut result = fallback();
         let capture = Arc::new(Mutex::new(None));
         let roots =
             rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -163,10 +257,19 @@ async fn inspect_inner(
             });
         }
         match handshake {
-            Ok(_) => {
+            Ok(mut secured) => {
                 result.name = "TLS".into();
+                result.verified = true;
                 result.evidence =
                     "TLS handshake completed; certificate validation recorded separately".into();
+                result.detection = Some("TLS handshake".into());
+                if let Some(mut http) =
+                    http_probe(&mut secured, ip, port, hostname.as_deref()).await
+                {
+                    http.name = "HTTPS".into();
+                    http.tls = result.tls.take();
+                    return http;
+                }
             }
             Err(e) => {
                 result.evidence = format!("TLS inspection: {e}");
@@ -175,54 +278,10 @@ async fn inspect_inner(
                 }
             }
         }
-        return result;
-    }
-    if matches!(port, 80 | 8000 | 8080 | 3000 | 9000 | 9090) {
-        let authority = hostname.unwrap_or_else(|| {
-            if ip.is_ipv6() {
-                format!("[{ip}]")
-            } else {
-                ip.to_string()
-            }
-        });
-        let request = format!(
-            "HEAD / HTTP/1.0\r\nHost: {authority}:{port}\r\nUser-Agent: PortSpecter/0.1\r\nConnection: close\r\n\r\n"
-        );
-        if stream.write_all(request.as_bytes()).await.is_err() {
-            return result;
-        }
-        let mut bytes = vec![0; 16 * 1024];
-        if let Ok(n) = stream.read(&mut bytes).await {
-            let value = String::from_utf8_lossy(&bytes[..n]);
-            if value.starts_with("HTTP/") {
-                result.name = "HTTP".into();
-                result.evidence = value.lines().take(12).collect::<Vec<_>>().join("\n");
-            }
-        }
-    } else {
-        let mut bytes = vec![0; 8192];
-        if let Ok(Ok(n)) =
-            tokio::time::timeout(Duration::from_millis(500), stream.read(&mut bytes)).await
-        {
-            let value = String::from_utf8_lossy(&bytes[..n]);
-            if n > 0 {
-                result.name = if value.starts_with("SSH-") {
-                    "SSH"
-                } else if value.starts_with("220") {
-                    "220 greeting"
-                } else {
-                    "Banner"
-                }
-                .into();
-                result.evidence = value
-                    .chars()
-                    .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
-                    .take(8192)
-                    .collect();
-            }
-        }
-    }
-    result
+        result
+    })
+    .await
+    .unwrap_or_else(|_| fallback())
 }
 
 type CertificateCapture = Arc<Mutex<Option<(Vec<u8>, String)>>>;
@@ -276,6 +335,37 @@ impl ServerCertVerifier for CaptureVerifier {
 mod tests {
     use super::*;
     #[tokio::test]
+    async fn fragmented_http_on_nonstandard_port_preserves_server_version() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0; 2048];
+            let n = stream.read(&mut request).await.unwrap();
+            let request = String::from_utf8_lossy(&request[..n]);
+            assert!(request.starts_with("HEAD / HTTP/1.0\r\n"));
+            assert!(!request.contains("Injected"));
+            stream.write_all(b"HTTP/1.1 200 OK\r\nSer").await.unwrap();
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            stream
+                .write_all(b"ver: nginx/1.28.0\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let result = inspect(
+            address.ip(),
+            address.port(),
+            Some("bad\r\nInjected: yes".into()),
+            None,
+        )
+        .await;
+        assert!(result.verified);
+        assert_eq!(result.name, "HTTP");
+        assert_eq!(result.product.as_deref(), Some("nginx"));
+        assert_eq!(result.version.as_deref(), Some("1.28.0"));
+        server.await.unwrap();
+    }
+    #[tokio::test]
     async fn ssh_evidence_comes_from_response_not_port_number() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -300,7 +390,7 @@ mod tests {
             tokio::time::sleep(Duration::from_secs(2)).await;
         });
         let observed = tokio::time::timeout(
-            Duration::from_secs(1),
+            Duration::from_millis(5500),
             inspect(address.ip(), address.port(), None, None),
         )
         .await

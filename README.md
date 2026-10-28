@@ -23,6 +23,8 @@ PortSpecter is a native **Rust + Iced** desktop application for multi-subnet dis
 | Inspect | Service evidence, device metadata, current routes and SMB shares including hidden shares |
 | Organize | SQLite history, scope-aware comparisons, profiles, persistent queue and CSV/JSON exports |
 | Navigate | Search and type filters; Overview, Ports, Discovery and Shares tabs; compact scan controls |
+| Diagnose | On-demand route/DHCP configuration, DNS/TCP checks and five-sample ICMP latency/loss/jitter |
+| Act | Open web/SSH/RDP/SMB clients and send a Wake-on-LAN packet |
 
 No cloud account or Nmap installation is needed. Scan data stays local. Optional SSDP discovery reads device descriptions from the same target; network activity follows configured scan and discovery settings.
 
@@ -89,7 +91,7 @@ cargo test --workspace --locked
 python scripts/package.py --check
 ```
 
-Latest local Windows validation: **62 tests passed**, one permission-dependent native SYN test ignored. The live CI badge and [status](docs/STATUS.md) distinguish remote and local evidence.
+Latest local Windows validation: **72 tests passed**, one permission-dependent native SYN test ignored. The live CI badge and [status](docs/STATUS.md) distinguish remote and local evidence.
 
 ## License and credits
 

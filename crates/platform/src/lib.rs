@@ -4,6 +4,8 @@ use portspecter_domain::{MacObservation, VendorDatabase, parse_mac};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::IpAddr};
 
+pub mod actions;
+pub mod health;
 mod ping;
 mod route;
 pub mod shares;

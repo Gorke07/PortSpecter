@@ -6,6 +6,7 @@ User-visible changes are recorded here. The current application version is `0.1.
 
 ### Added
 
+- Response-based service/product/version detection, source-aware identity conflicts, an explicit network health test and device actions (web, SSH, RDP, SMB and Wake-on-LAN).
 - Rust/Iced desktop workspace with Turkish/English, dark/light themes and custom window controls.
 - Multi-subnet planning, CIDR/range parsing, exclusions and VLAN labels.
 - TCP connect, UDP and experimental native IPv4 SYN scanning with pause/cancel and bounded concurrency.

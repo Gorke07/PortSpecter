@@ -1,5 +1,13 @@
 # Implementation status
 
+## Network tools update - 2026-10-28
+
+Added bounded response-based service/product/version inspection, evidence-preserving device identity, on-demand network health checks and typed device actions including Wake-on-LAN. Service JSON remains backward compatible in SQLite schema 5; JSON export schema is now 5 and CSV adds service/identity JSON columns.
+
+Local Windows validation: 72 tests passed, one existing privileged SYN test ignored; workspace Clippy and Linux/macOS ARM64 platform Clippy checks passed. Persistence tests retain service versions, loopback responders exercise nonstandard-port fragmented HTTP and health checks, and identity/MAC/WoL tests cover evidence and packet formatting. Native Windows health/identity screenshots were inspected with isolated synthetic data. Interactive UI automation could not initialize in this session. External client launches, physical WoL reception, DHCP renewal (not implemented), and real-device version coverage are not claimed as tested.
+
+The preceding CI baseline passed Windows, Ubuntu and macOS ARM64, including development Debian/DMG packaging. JavaScript actions use Node 24 and pinned SHAs with weekly Dependabot updates; Intel macOS is no longer in the matrix. Current feature-commit CI results are tracked by GitHub Actions.
+
 ## Latest snapshot — 2026-10-27
 
 Local Windows validation: **62 tests passed, one native SYN test ignored**; formatting, workspace Clippy with warnings denied and packaging source checks passed. The current schemas are SQLite **5** and JSON export **4**. Device details use Overview, Ports, Discovery and Shares tabs, and scan controls collapse after session loading/start.

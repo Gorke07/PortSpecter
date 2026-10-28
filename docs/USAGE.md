@@ -15,6 +15,32 @@ After a scan starts or a saved session loads, scan controls collapse into a comp
 
 Port-number hints are marked `?`. Reported service ports are not confirmed open ports. Route details describe the current OS connection, including when viewing saved history.
 
+### Service and version inspection
+
+TCP connect scans with service inspection enabled now classify SSH, HTTP/HTTPS, FTP, SMTP, IMAP, POP3, RFB/VNC and MySQL-compatible greetings from response evidence. Recognized product tokens can provide a reported product/version; not every service advertises one. HTTP `Server` and server banners are self-reported, not independently authenticated software inventories. RFB protocol versions are not misreported as VNC software versions.
+
+On nonstandard ports the inspector first listens for a banner, then attempts bounded HTTP HEAD and TLS inspection when no banner arrives. Raw printing ports 9100–9107 are excluded from these generic active probes. Each inspection has a five-second total budget and bounded response buffers. TLS certificates are validated; an untrusted certificate can be recorded as evidence, but verification is not bypassed to fetch application data. TCP service inspection remains disabled for UDP/SYN scans. This is a focused native detector, not the complete Nmap probe database.
+
+Product, version, detection method and verification status appear in expanded port details and survive history reload. Old records load with an unverified status unless newly observed.
+
+### Identity evidence
+
+The Overview tab combines DNS/neighbor, camera, DNS-SD/SSDP, software and TLS evidence. Equivalent MAC formats are normalized and sources combined. Different observations for the same identity field remain visible as conflicts. NIC vendor, reported manufacturer, DNS hostnames and service-instance names stay distinct; multiple hosted services or certificates do not imply a physical identity conflict. Hosts are never merged across IPs solely because names or MACs match.
+
+### Device actions
+
+Choose **Actions** in device details for HTTP/HTTPS, SSH, Remote Desktop and SMB. Enter an optional port override for nonstandard services. Actions use the selected IP, not arbitrary discovered shell commands. Windows SSH requires Windows Terminal/OpenSSH; Linux SSH requires a registered `ssh://` handler and RDP uses `xfreerdp`; macOS uses registered URI handlers. Missing applications are reported when launch fails. A successful launch request does not prove that the remote connection succeeded.
+
+Wake-on-LAN accepts a unicast MAC and IPv4 broadcast/destination, sending one standard magic packet to UDP 9. Verify the destination and device configuration. Router/VPN broadcast restrictions and sleeping-device configuration can prevent wake-up; sending a packet is not wake confirmation.
+
+## Network health
+
+Open **Network health** from the sidebar. Enter an IP:port and a DNS hostname, then explicitly start the test. Defaults contact `1.1.1.1:443` and resolve `example.com`; use local targets for local-only diagnosis. Nothing runs automatically on opening the page.
+
+The test reads the current route and DHCP configuration/lease, resolves through the system resolver, attempts one TCP connection and sends five ICMP probes each to the target and its next hop when applicable. It reports successful replies, unavailable probes, no-reply percentage, min/average/max latency and mean absolute RTT difference between adjacent successful probes (jitter). Failed samples are not bridged for jitter. Cancellation invalidates pending results.
+
+DHCP is a read-only configuration/lease check, not a lease renewal or proof that a DHCP server is reachable. Windows exposes DHCP enablement; macOS uses `ipconfig getpacket`, and Linux uses NetworkManager's `nmcli` when available. Static/externally managed configurations can be unavailable. DNS can use the OS cache. A selected TCP endpoint succeeding does not establish unrestricted Internet access. Five ICMP samples are a short diagnostic, and ICMP can be filtered. RTT precision follows the platform ICMP provider.
+
 ## Performance, history and exports
 
 Worker threads can be configured from 1 to 256. Worker count, global/per-host concurrency, attempt rate, timeouts and retries are separate limits. More threads do not guarantee a faster scan; start with defaults and measure a small scope.
@@ -23,7 +49,7 @@ History compares common scope between sessions using the same method; an unteste
 
 SQLite stores sessions/settings in the OS application-data directory. `PORTSPECTER_DATA_DIR` overrides it for isolated development. Close the app before backing up the database and its WAL sidecars. Do not publish real databases or exports in bug reports.
 
-Current formats: SQLite schema **5**, JSON export schema **4**. Discovery-only devices can have empty CSV port/state fields. See [Troubleshooting](TROUBLESHOOTING.md) for missing names/MACs, discovery and share permissions.
+Current formats: SQLite schema **5**, JSON export schema **5**. Discovery-only devices can have empty CSV port/state fields. See [Troubleshooting](TROUBLESHOOTING.md) for missing names/MACs, discovery and share permissions.
 
 ## Multiple subnets / VLANs
 
@@ -71,7 +97,7 @@ The Discovery tab shows advertised ONVIF name/hardware/service endpoints and SAD
 - Linux: `smbclient` (included as a Debian package dependency), using anonymous enumeration and SMB2/3.
 - macOS: `smbclient`, for example from `brew install samba`; Homebrew's ARM/Intel executable paths are detected. No automatic installation or credential collection.
 
-Camera/share results survive history reload and appear in JSON (schema 4) and the CSV JSON columns. SQLite schema 5 migrates previous databases without deleting observations.
+Camera/share results survive history reload and appear in JSON (schema 5) and the CSV JSON columns. SQLite schema 5 migrates previous databases without deleting observations.
 
 Protocol references: [ONVIF Core](https://www.onvif.org/specs/2312/ONVIF-Core-Spec-v2312.pdf), [SADP tooling implementation](https://github.com/cameronnewman/hikvision-tooling), [NetShareEnum](https://learn.microsoft.com/en-us/windows/win32/api/lmshare/nf-lmshare-netshareenum), [smbclient](https://www.samba.org/samba/docs/current/man-html/smbclient.1).
 
@@ -84,6 +110,6 @@ Enable the three optional protocols under **Settings → Device and share discov
 - **SSDP / UPnP:** `M-SEARCH` on UDP 1900, deduplication by UDN, and same-target HTTP(S) description reads for name, manufacturer, model and device type. Foreign-IP/hostname locations, credentials and fragments are rejected; redirects and system proxies are disabled. TLS certificates are validated. At most 32 distinct descriptions are fetched per interface, four concurrently, with 128 KiB and deadline limits. Unavailable descriptions retain the discovery evidence and an explanation.
 - **Device type filters:** camera, NVR/DVR, printer, router, switch, file server/NAS, media device, computer and unknown. Types are inferred from explicit device/service evidence rather than open ports or vendor names alone. Multiple roles can match one device. Unsupported device classes remain unknown; a switch or computer is not guaranteed to advertise a recognizable class. Existing open-port/subnet/search filters still apply independently.
 
-The Overview and Discovery tabs show the source protocol and classification evidence. Names/MACs reported by discovery can fill the display when DNS/neighbor data is absent. Records persist in SQLite schema 5 and JSON schema 4, with a `device_advertisements_json` CSV column; even devices without any completed port observations get a CSV row with empty port/state fields.
+The Overview and Discovery tabs show the source protocol and classification evidence. Names/MACs reported by discovery can fill the display when DNS/neighbor data is absent. Records persist in SQLite schema 5 and JSON schema 5, with a `device_advertisements_json` CSV column; even devices without any completed port observations get a CSV row with empty port/state fields.
 
 Implemented and tested with bounded packet fixtures and local UDP/HTTP responders. Physical Dahua firmware, Bonjour and UPnP interoperability and native Linux/macOS runtime checks are still required. Protocol references: [DNS-SD RFC 6763](https://datatracker.ietf.org/doc/html/rfc6763), [mDNS RFC 6762](https://datatracker.ietf.org/doc/html/rfc6762), [OCF UPnP](https://openconnectivity.org/foundation/faq/upnp-faq/), [DHIP framing reference](https://github.com/OpenIPC/python-dhip/blob/master/dahua/discovery.py).

@@ -28,6 +28,7 @@ pub enum Page {
     Profiles,
     Settings,
     Queue,
+    Health,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InspectorTab {
@@ -38,6 +39,19 @@ pub enum InspectorTab {
 }
 #[derive(Debug, Clone)]
 pub enum Message {
+    HealthTarget(String),
+    HealthDns(String),
+    HealthStart,
+    HealthCancel,
+    ToggleDeviceActions,
+    ToggleIdentity,
+    ActionPort(String),
+    OpenDevice(portspecter_platform::actions::DeviceAction, IpAddr),
+    ActionComplete(Result<(), String>),
+    WolMac(String),
+    WolTarget(String),
+    WakeDevice,
+    WakeComplete(Result<(), String>),
     #[cfg(windows)]
     WindowOpened(iced::window::Id),
     WindowDrag,
@@ -203,6 +217,17 @@ pub struct App {
     sort_open: bool,
     selected: Option<IpAddr>,
     scan_controls_expanded: bool,
+    health_target: String,
+    health_dns: String,
+    health_running: bool,
+    health_generation: u64,
+    health_report: Option<portspecter_platform::health::HealthReport>,
+    device_actions: bool,
+    identity_expanded: bool,
+    action_port: String,
+    wol_mac: String,
+    wol_target: String,
+    wake_pending: bool,
     info_tab: InspectorTab,
     expanded_discovery: Option<String>,
     detail_all_ports: bool,
@@ -229,7 +254,9 @@ impl App {
         Self {
             locale: Locale::new(Language::system()),
             light: false,
-            page: if std::env::args().any(|arg| arg == "--settings") {
+            page: if std::env::args().any(|arg| arg == "--health") {
+                Page::Health
+            } else if std::env::args().any(|arg| arg == "--settings") {
                 Page::Settings
             } else {
                 Page::Scan
@@ -295,6 +322,17 @@ impl App {
             sort_open: false,
             selected: None,
             scan_controls_expanded: true,
+            health_target: "1.1.1.1:443".into(),
+            health_dns: "example.com".into(),
+            health_running: false,
+            health_generation: 0,
+            health_report: None,
+            device_actions: false,
+            identity_expanded: false,
+            action_port: String::new(),
+            wol_mac: String::new(),
+            wol_target: "255.255.255.255".into(),
+            wake_pending: false,
             info_tab: InspectorTab::Overview,
             expanded_discovery: None,
             detail_all_ports: false,
@@ -486,6 +524,12 @@ impl App {
     }
     fn handle(&mut self, event: Event) {
         match event {
+            Event::Health(id, report) => {
+                if self.health_running && id == self.health_generation {
+                    self.health_report = Some(*report);
+                    self.health_running = false;
+                }
+            }
             Event::Route {
                 session_id,
                 ip,
@@ -741,6 +785,127 @@ impl App {
             self.defaults_saved = false;
         }
         match message {
+            Message::HealthTarget(value) => {
+                if !self.health_running {
+                    self.health_target = value;
+                }
+            }
+            Message::HealthDns(value) => {
+                if !self.health_running {
+                    self.health_dns = value;
+                }
+            }
+            Message::HealthStart => {
+                if !self.ready || self.health_running {
+                    return Task::none();
+                }
+                let target = self
+                    .health_target
+                    .trim()
+                    .parse::<std::net::SocketAddr>()
+                    .ok()
+                    .filter(|a| {
+                        a.port() != 0 && !a.ip().is_unspecified() && !a.ip().is_multicast()
+                    });
+                if let Some(target) = target.filter(|_| {
+                    portspecter_platform::health::valid_dns_name(self.health_dns.trim())
+                }) {
+                    self.health_generation += 1;
+                    self.health_running = true;
+                    self.health_report = None;
+                    self.error = None;
+                    if self
+                        .tx
+                        .try_send(Command::Health(
+                            self.health_generation,
+                            target,
+                            self.health_dns.trim().into(),
+                        ))
+                        .is_err()
+                    {
+                        self.health_running = false;
+                        self.error = Some(self.t("health-start-error"));
+                    }
+                } else {
+                    self.error = Some(self.t("health-input-error"));
+                }
+            }
+            Message::HealthCancel => {
+                self.health_generation += 1;
+                self.health_running = false;
+                self.send(Command::CancelHealth);
+            }
+            Message::ToggleDeviceActions => self.device_actions = !self.device_actions,
+            Message::ToggleIdentity => self.identity_expanded = !self.identity_expanded,
+            Message::ActionPort(value) => self.action_port = value,
+            Message::WolMac(value) => self.wol_mac = value,
+            Message::WolTarget(value) => self.wol_target = value,
+            Message::OpenDevice(action, ip) => {
+                use portspecter_platform::actions::DeviceAction;
+                let default = match action {
+                    DeviceAction::Web => 80,
+                    DeviceAction::SecureWeb => 443,
+                    DeviceAction::Ssh => 22,
+                    DeviceAction::Rdp => 3389,
+                    DeviceAction::Shares => 445,
+                };
+                let port = if self.action_port.trim().is_empty() || action == DeviceAction::Shares {
+                    Some(default)
+                } else {
+                    self.action_port
+                        .trim()
+                        .parse::<u16>()
+                        .ok()
+                        .filter(|p| *p > 0)
+                };
+                if let Some(port) = port {
+                    return Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || {
+                                portspecter_platform::actions::open(action, ip, port)
+                            })
+                            .await
+                            .map_err(|e| e.to_string())
+                            .and_then(|r| r.map_err(|e| e.to_string()))
+                        },
+                        Message::ActionComplete,
+                    );
+                } else {
+                    self.error = Some(self.t("action-port-error"));
+                }
+            }
+            Message::ActionComplete(result) => match result {
+                Ok(()) => self.notice = Some(self.t("action-launched")),
+                Err(error) => self.error = Some(format!("{}: {error}", self.t("action-failed"))),
+            },
+            Message::WakeDevice => {
+                if self.wake_pending {
+                    return Task::none();
+                }
+                if let Ok(target) = self.wol_target.trim().parse::<std::net::Ipv4Addr>()
+                    && portspecter_platform::actions::magic_packet(self.wol_mac.trim()).is_ok()
+                {
+                    self.wake_pending = true;
+                    let mac = self.wol_mac.trim().to_owned();
+                    return Task::perform(
+                        async move {
+                            portspecter_platform::actions::wake(&mac, target)
+                                .await
+                                .map_err(|e| e.to_string())
+                        },
+                        Message::WakeComplete,
+                    );
+                } else {
+                    self.error = Some(self.t("wol-input-error"));
+                }
+            }
+            Message::WakeComplete(result) => {
+                self.wake_pending = false;
+                match result {
+                    Ok(()) => self.notice = Some(self.t("wol-sent")),
+                    Err(e) => self.error = Some(e),
+                }
+            }
             Message::QueueCurrent => match self.settings() {
                 Ok(settings) => {
                     let profile = SavedProfile {
@@ -1123,6 +1288,19 @@ impl App {
             }
             Message::Select(ip) => {
                 if self.selected != Some(ip) {
+                    self.device_actions = false;
+                    self.identity_expanded = false;
+                    self.action_port.clear();
+                    self.wol_mac = self
+                        .session
+                        .as_ref()
+                        .and_then(|session| {
+                            self.host_indices
+                                .get(&ip)
+                                .and_then(|i| session.hosts.get(*i))
+                        })
+                        .and_then(|host| host.identity().preferred("mac").map(str::to_owned))
+                        .unwrap_or_default();
                     self.info_tab = InspectorTab::Overview;
                     self.expanded_discovery = None;
                     self.detail_all_ports = false;
@@ -1147,6 +1325,7 @@ impl App {
                 self.scan_controls_expanded = !self.scan_controls_expanded;
             }
             Message::InfoTab(value) => {
+                self.device_actions = false;
                 self.info_tab = value;
                 return iced::widget::operation::snap_to(
                     "device-detail",
@@ -1322,6 +1501,7 @@ impl App {
             Page::Profiles => self.profiles_page(),
             Page::Settings => self.settings_page(),
             Page::Queue => self.queue_page(),
+            Page::Health => self.health_page(),
         };
         let mut body = column![content].spacing(8).height(Length::Fill);
         if let Some(error) = &self.error {
@@ -1516,6 +1696,7 @@ impl App {
             (Page::Devices, "devices", "▦"),
             (Page::History, "history", "◷"),
             (Page::Queue, "queue", "+"),
+            (Page::Health, "health", "+"),
             (Page::Profiles, "profiles", "≡"),
         ] {
             let selected = self.page == page;
@@ -1575,6 +1756,158 @@ impl App {
             text(self.t(subtitle)).size(12).color(style::MUTED)
         ]
         .spacing(6)
+        .into()
+    }
+    fn health_page(&self) -> Element<'_, Message> {
+        let mut controls = column![
+            self.label("health-target"),
+            text_input("1.1.1.1:443", &self.health_target)
+                .padding(10)
+                .on_input_maybe((!self.health_running).then_some(Message::HealthTarget)),
+            self.label("health-dns"),
+            text_input("example.com", &self.health_dns)
+                .padding(10)
+                .on_input_maybe((!self.health_running).then_some(Message::HealthDns)),
+            text(self.t("health-help")).size(12),
+        ]
+        .spacing(10);
+        controls = controls.push(if self.health_running {
+            self.action("health-cancel", Message::HealthCancel)
+        } else {
+            self.action("health-run", Message::HealthStart)
+                .on_press_maybe(self.ready.then_some(Message::HealthStart))
+        });
+        let mut results = column![].spacing(12);
+        if self.health_running {
+            results = results.push(text(self.t("health-running")).size(14));
+        } else if let Some(report) = &self.health_report {
+            results = results.push(
+                text(format!(
+                    "{} / {} / {}",
+                    report.target,
+                    report.dns_name,
+                    report
+                        .measured_at
+                        .with_timezone(&chrono::Local)
+                        .format("%H:%M:%S")
+                ))
+                .font(style::MONO)
+                .size(12),
+            );
+            let card = |label: &str, value: String| -> Element<'_, Message> {
+                container(
+                    column![
+                        self.label(label),
+                        text(value).size(13).wrapping(text::Wrapping::WordOrGlyph)
+                    ]
+                    .spacing(8),
+                )
+                .padding(14)
+                .width(Length::Fill)
+                .style(style::subtle)
+                .into()
+            };
+            results = results.push(card(
+                "route-current",
+                match &report.route {
+                    Ok(route) => format!(
+                        "{} / {} / {}",
+                        route.interface,
+                        route.source,
+                        route
+                            .next_hop
+                            .map(|ip| ip.to_string())
+                            .unwrap_or_else(|| self.t("route-on-link"))
+                    ),
+                    Err(error) => error.clone(),
+                },
+            ));
+            results = results.push(card("health-dhcp", report.dhcp.clone()));
+            results = results.push(card(
+                "health-dns",
+                match &report.dns {
+                    Ok((ips, ms)) => format!(
+                        "{ms} ms / {}",
+                        ips.iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                    Err(error) => format!("{}: {error}", self.t("health-failed")),
+                },
+            ));
+            results = results.push(card(
+                "health-tcp",
+                match &report.tcp {
+                    Ok(ms) => format!("{} / {ms} ms", self.t("health-connected")),
+                    Err(error) => format!("{}: {error}", self.t("health-failed")),
+                },
+            ));
+            let metrics = |s: &portspecter_platform::health::Samples| {
+                let missing = s.sent.saturating_sub(s.received + s.unavailable);
+                let attempted = s.sent.saturating_sub(s.unavailable);
+                let loss = if attempted == 0 {
+                    "-".into()
+                } else {
+                    format!("{:.0}%", 100.0 * missing as f64 / attempted as f64)
+                };
+                format!(
+                    "{}: {}/{} / {}: {} / {}: {}\nmin / avg / max: {} / {} / {} ms\n{}: {} ms",
+                    self.t("health-replies"),
+                    s.received,
+                    s.sent,
+                    self.t("health-loss"),
+                    loss,
+                    self.t("health-unavailable"),
+                    s.unavailable,
+                    s.min_ms
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "-".into()),
+                    s.average_ms
+                        .map(|n| format!("{n:.1}"))
+                        .unwrap_or_else(|| "-".into()),
+                    s.max_ms
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "-".into()),
+                    self.t("health-jitter"),
+                    s.jitter_ms
+                        .map(|n| format!("{n:.1}"))
+                        .unwrap_or_else(|| "-".into())
+                )
+            };
+            results = results
+                .push(card(
+                    "health-gateway",
+                    report
+                        .gateway
+                        .as_ref()
+                        .map(metrics)
+                        .unwrap_or_else(|| self.t("health-no-gateway")),
+                ))
+                .push(card("health-target-ping", metrics(&report.target_ping)))
+                .push(text(self.t("health-metrics-note")).size(11));
+        } else {
+            results = results.push(text(self.t("health-empty")).size(14));
+        }
+        let form = container(controls)
+            .padding(16)
+            .width(Length::Fill)
+            .style(style::surface);
+        let content: Element<'_, Message> = if self.width >= 1200. {
+            row![
+                container(form).width(Length::FillPortion(2)),
+                container(results).width(Length::FillPortion(3))
+            ]
+            .spacing(20)
+            .into()
+        } else {
+            column![form, results].spacing(16).into()
+        };
+        column![
+            self.header("health", "health-subtitle"),
+            scrollable(content).height(Length::Fill)
+        ]
+        .spacing(16)
         .into()
     }
     fn scan_page(&self) -> Element<'_, Message> {
@@ -2491,6 +2824,7 @@ impl App {
         if let Some(name) = &display_name {
             actions = actions.push(self.action("copy-name", Message::Copy(name.clone())));
         }
+        actions = actions.push(self.action("device-actions", Message::ToggleDeviceActions));
         let mut tabs = row![].spacing(4);
         for (tab, label) in [
             (InspectorTab::Overview, "detail-overview"),
@@ -2519,7 +2853,46 @@ impl App {
             .spacing(5)
             .into()
         };
-        if self.info_tab == InspectorTab::Overview {
+        if self.device_actions {
+            use portspecter_platform::actions::DeviceAction;
+            body = body.push(text(self.t("action-help")).size(12)).push(
+                text_input(&self.t("action-port-default"), &self.action_port)
+                    .on_input(Message::ActionPort)
+                    .padding(8),
+            );
+            for (label, action) in [
+                ("action-web", DeviceAction::Web),
+                ("action-https", DeviceAction::SecureWeb),
+                ("action-ssh", DeviceAction::Ssh),
+                ("action-rdp", DeviceAction::Rdp),
+                ("action-shares", DeviceAction::Shares),
+            ] {
+                body = body.push(
+                    self.action(label, Message::OpenDevice(action, host.ip))
+                        .width(Length::Fill),
+                );
+            }
+            body = body
+                .push(horizontal_rule(1))
+                .push(self.label("wol"))
+                .push(text(self.t("wol-help")).size(11))
+                .push(self.label("mac"))
+                .push(
+                    text_input("00:11:22:33:44:55", &self.wol_mac)
+                        .on_input(Message::WolMac)
+                        .padding(8),
+                )
+                .push(self.label("wol-target"))
+                .push(
+                    text_input("255.255.255.255", &self.wol_target)
+                        .on_input(Message::WolTarget)
+                        .padding(8),
+                )
+                .push(
+                    self.action("wol-send", Message::WakeDevice)
+                        .on_press_maybe((!self.wake_pending).then_some(Message::WakeDevice)),
+                );
+        } else if self.info_tab == InspectorTab::Overview {
             let kinds = host.device_kinds();
             let mut types = column![
                 self.label("device-kind"),
@@ -2567,103 +2940,57 @@ impl App {
                         .style(style::subtle),
                 );
             }
-            let mut identity = column![field(
-                "hostname",
-                host.hostname
-                    .clone()
-                    .or_else(|| host
-                        .advertisements
-                        .iter()
-                        .find_map(|ad| ad.hostname.clone()))
-                    .or_else(|| display_name.clone())
-                    .unwrap_or_else(|| self.t("unknown-name"))
-            )]
-            .spacing(12);
-            if let Some(name) = &host.hostname_info {
-                identity = identity.push(field(
-                    "name-source",
-                    self.t(if name.source == "reverse_dns" {
-                        "source-dns"
-                    } else if name.source == "mdns" {
-                        "source-mdns"
-                    } else if name.source == "llmnr" {
-                        "source-llmnr"
-                    } else {
-                        "source-netbios"
-                    }),
-                ));
-            } else if host.hostname.is_none() {
-                let source = host
-                    .advertisements
-                    .iter()
-                    .find(|ad| ad.hostname.is_some())
-                    .map(|ad| ad.protocol.clone())
-                    .or_else(|| {
-                        host.cameras
+            let merged = host.identity();
+            let mut identity = column![self.label("identity-evidence")].spacing(10);
+            if !merged.conflicts.is_empty() {
+                identity = identity.push(
+                    text(format!(
+                        "{}: {}",
+                        self.t("identity-conflict"),
+                        merged
+                            .conflicts
                             .iter()
-                            .find(|camera| camera.name.is_some() || camera.model.is_some())
-                            .map(|camera| camera.protocol.clone())
-                    })
-                    .or_else(|| {
-                        host.advertisements
-                            .iter()
-                            .find(|ad| ad.name.is_some() || ad.model.is_some())
-                            .map(|ad| ad.protocol.clone())
-                    });
-                if let Some(source) = source {
-                    identity = identity.push(field("name-source", source));
+                            .map(|k| self.t(k))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                    .size(12)
+                    .color(style::ACCENT),
+                );
+            }
+            for claim in merged.claims.iter().take(if self.identity_expanded {
+                usize::MAX
+            } else {
+                5
+            }) {
+                identity = identity
+                    .push(field(&claim.field, claim.value.clone()))
+                    .push(text(claim.sources.join(" / ")).size(10).color(muted));
+                if claim.field == "mac" {
+                    identity =
+                        identity.push(self.action("copy-mac", Message::Copy(claim.value.clone())));
                 }
             }
-            if let Some(mac) = &host.mac {
-                identity = identity
-                    .push(field("mac", mac.address.clone()))
-                    .push(self.action("copy-mac", Message::Copy(mac.address.clone())));
-                identity = identity.push(field(
-                    "vendor",
-                    if mac.locally_administered {
-                        self.t("local-mac")
+            if merged.claims.is_empty() {
+                identity = identity.push(text(self.t("identity-empty")).size(12));
+            }
+            if merged.claims.len() > 5 {
+                identity = identity.push(self.action(
+                    if self.identity_expanded {
+                        "detail-collapse"
                     } else {
-                        mac.vendor
-                            .clone()
-                            .unwrap_or_else(|| self.t("unknown-vendor"))
+                        "identity-all"
                     },
+                    Message::ToggleIdentity,
                 ));
-                let source = match mac.source.as_str() {
-                    "local_interface" => "source-interface",
-                    "netbios_node_status" => "source-netbios",
-                    _ => "source-neighbor",
-                };
+            }
+            if self.identity_expanded
+                && let Some(mac) = &host.mac
+            {
                 identity = identity
-                    .push(field("mac-source", self.t(source)))
                     .push(field("interface", mac.interface.clone()))
                     .push(field("mac-state", mac.neighbor_state.clone()))
-                    .push(field(
-                        "observed",
-                        mac.observed_at
-                            .with_timezone(&chrono::Local)
-                            .format("%Y-%m-%d %H:%M:%S")
-                            .to_string(),
-                    ));
-            } else if let Some(camera) = host.cameras.iter().find(|c| c.mac.is_some()) {
-                identity = identity
-                    .push(field("mac", camera.mac.clone().unwrap_or_default()))
-                    .push(self.action(
-                        "copy-mac",
-                        Message::Copy(camera.mac.clone().unwrap_or_default()),
-                    ))
-                    .push(field("mac-source", camera.protocol.clone()));
-            } else if let Some(ad) = host.advertisements.iter().find(|a| a.mac.is_some()) {
-                identity = identity
-                    .push(field("mac", ad.mac.clone().unwrap_or_default()))
-                    .push(self.action(
-                        "copy-mac",
-                        Message::Copy(ad.mac.clone().unwrap_or_default()),
-                    ))
-                    .push(field("mac-source", ad.protocol.clone()));
-            } else {
-                identity = identity
-                    .push(self.label("mac"))
-                    .push(text(self.t("no-mac")).size(12).color(muted));
+                    .push(field("observed", mac.observed_at.to_rfc3339()));
             }
             body = body.push(
                 container(identity)
@@ -3103,6 +3430,23 @@ impl App {
                     )]
                     .spacing(10);
                     if let Some(service) = &port.service {
+                        details = details.push(field(
+                            "service-confidence",
+                            self.t(if service.verified {
+                                "service-verified"
+                            } else {
+                                "service-unverified"
+                            }),
+                        ));
+                        if let Some(product) = &service.product {
+                            details = details.push(field("service-product", product.clone()));
+                        }
+                        if let Some(version) = &service.version {
+                            details = details.push(field("service-version", version.clone()));
+                        }
+                        if let Some(detection) = &service.detection {
+                            details = details.push(field("service-detection", detection.clone()));
+                        }
                         if !service.evidence.is_empty() {
                             details = details.push(self.label("evidence")).push(
                                 text(service.evidence.chars().take(1600).collect::<String>())
@@ -3201,7 +3545,7 @@ impl App {
             ]
             .spacing(12);
             for warning in &comparison.warnings {
-                details = details.push(text(self.t(warning)).size(13).color(style::AMBER));
+                details = details.push(text(self.t(warning)).size(13).color(style::ACCENT));
             }
             if comparison.devices.is_empty() && comparison.ports.is_empty() {
                 details = details.push(text(self.t("compare-empty")).size(16));
@@ -3781,6 +4125,25 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn health_requires_valid_input_and_cancel_invalidates_pending_results() {
+        let (mut app, mut commands) = isolated_app();
+        app.ready = true;
+        app.health_target = "not a socket address".into();
+        let _ = app.update(Message::HealthStart);
+        assert!(!app.health_running);
+        assert!(commands.try_recv().is_err());
+        app.health_target = "127.0.0.1:8080".into();
+        app.health_dns = "localhost".into();
+        let _ = app.update(Message::HealthStart);
+        assert!(matches!(commands.try_recv(), Ok(Command::Health(1, _, _))));
+        let _ = app.update(Message::HealthStart);
+        assert!(commands.try_recv().is_err());
+        let _ = app.update(Message::HealthCancel);
+        assert!(matches!(commands.try_recv(), Ok(Command::CancelHealth)));
+        assert!(!app.health_running);
+        assert_eq!(app.health_generation, 2);
+    }
     #[test]
     fn inspector_tabs_and_expansion_reset_for_a_new_device() {
         let (mut app, _) = isolated_app();

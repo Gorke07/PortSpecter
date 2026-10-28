@@ -38,7 +38,7 @@ Discovery accepts in-scope targets and validates protocol responses. SSDP descri
 
 ## Persistence and assets
 
-SQLite schema **5** stores advertisements alongside earlier observations; JSON export schema **4** preserves discovery records. Migrations live in `crates/storage/migrations`. CSV can include a discovery-only device with empty port/state fields.
+SQLite schema **5** stores advertisements alongside earlier observations; JSON export schema **5** preserves discovery records. Migrations live in `crates/storage/migrations`. CSV can include a discovery-only device with empty port/state fields.
 
 The backend uses the OS local application-data directory and supports `PORTSPECTER_DATA_DIR` for isolation. Fonts, icons and the vendor snapshot are local assets. See [NOTICE](../NOTICE) for third-party terms.
 

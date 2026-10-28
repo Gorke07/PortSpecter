@@ -13,7 +13,7 @@ pub fn export_json(path: &Path, session: &ScanSession) -> Result<()> {
     serde_json::to_writer_pretty(
         file,
         &Export {
-            schema_version: 4,
+            schema_version: 5,
             session,
         },
     )?;
@@ -53,6 +53,8 @@ pub fn export_csv(path: &Path, session: &ScanSession) -> Result<()> {
         "service",
         "evidence",
         "observed_at",
+        "service_details_json",
+        "device_identity_json",
     ])?;
     for host in &session.hosts {
         let names = host
@@ -121,6 +123,8 @@ pub fn export_csv(path: &Path, session: &ScanSession) -> Result<()> {
                     .or_else(|| host.cameras.first().map(|c| c.observed_at))
                     .unwrap_or(session.started_at)
                     .to_rfc3339(),
+                serde_json::to_string(&port.and_then(|p| p.service.as_ref()))?,
+                serde_json::to_string(&host.identity())?,
             ];
             out.write_record(record.iter().map(|s| csv_safe(s)))?;
         }
