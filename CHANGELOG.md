@@ -18,6 +18,7 @@ User-visible changes are recorded here. The current application version is `0.1.
 
 ### Improved
 
+- Flatter device inspector with aligned identity fields, expandable sources, quieter tabs and persistent footer actions.
 - Default TCP preset reduced to 11 ports, with optional 34-port extended scanning.
 - Configurable worker count from 1 to 256.
 - Compact scan summary and Overview/Ports/Discovery/Shares device inspector.

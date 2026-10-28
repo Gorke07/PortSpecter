@@ -2765,7 +2765,7 @@ impl App {
                 .padding(18)
                 .into();
         };
-        let muted = self.theme().extended_palette().background.weak.text;
+        let muted = style::muted(&self.theme());
         let open = host.open_count();
         let closed = host
             .ports
@@ -2787,27 +2787,35 @@ impl App {
                     .iter()
                     .find_map(|a| a.name.clone().or(a.model.clone()))
             });
-        let mut heading = column![
+        let heading = column![
             row![
                 self.label("inspector").width(Length::Fill),
                 button(text(self.t("close-detail")).size(11))
+                    .padding([5, 8])
                     .style(button::text)
                     .on_press(Message::CloseDetail)
             ]
             .align_y(Alignment::Center),
             text(display_name.clone().unwrap_or_else(|| ip.clone()))
-                .size(21)
+                .size(19)
                 .wrapping(text::Wrapping::WordOrGlyph),
-        ]
-        .spacing(8);
-        if display_name.is_some() {
-            heading = heading.push(text(ip.clone()).font(style::MONO).size(13).color(muted));
-        }
-        heading = heading.push(
             row![
-                container(text(format!("{open} {}", self.t("detail-open"))).size(12))
-                    .padding([5, 8])
-                    .style(style::selected),
+                text(ip.clone())
+                    .font(style::MONO)
+                    .size(12)
+                    .color(muted)
+                    .width(Length::Fill),
+                button(text(self.t("copy-ip")).size(11))
+                    .padding([5, 6])
+                    .style(button::text)
+                    .on_press(Message::Copy(ip.clone())),
+            ]
+            .align_y(Alignment::Center),
+            row![
+                text(format!("{open} {}", self.t("detail-open")))
+                    .size(12)
+                    .color(self.theme().palette().primary),
+                space::horizontal(),
                 text(format!(
                     "{} / {} {}",
                     host.completed,
@@ -2815,16 +2823,32 @@ impl App {
                     self.t("detail-checked")
                 ))
                 .size(11)
-                .color(muted)
+                .color(muted),
             ]
-            .spacing(10)
             .align_y(Alignment::Center),
-        );
-        let mut actions = row![self.action("copy-ip", Message::Copy(ip))].spacing(6);
+        ]
+        .spacing(6);
+        let mut actions = row![].spacing(6);
         if let Some(name) = &display_name {
-            actions = actions.push(self.action("copy-name", Message::Copy(name.clone())));
+            actions = actions.push(
+                button(text(self.t("copy-name")).size(11))
+                    .style(button::text)
+                    .on_press(Message::Copy(name.clone())),
+            );
         }
-        actions = actions.push(self.action("device-actions", Message::ToggleDeviceActions));
+        actions = actions.push(space::horizontal()).push(
+            button(
+                text(self.t(if self.device_actions {
+                    "detail-collapse"
+                } else {
+                    "device-actions"
+                }))
+                .size(12),
+            )
+            .padding([8, 12])
+            .style(style::secondary)
+            .on_press(Message::ToggleDeviceActions),
+        );
         let mut tabs = row![].spacing(4);
         for (tab, label) in [
             (InspectorTab::Overview, "detail-overview"),
@@ -2836,21 +2860,24 @@ impl App {
                 button(text(self.t(label)).size(12))
                     .padding([9, 5])
                     .width(Length::Fill)
-                    .style(if self.info_tab == tab {
-                        button::primary
+                    .style(if self.info_tab == tab && !self.device_actions {
+                        style::inspector_tab_active
                     } else {
-                        style::secondary
+                        style::inspector_tab
                     })
                     .on_press(Message::InfoTab(tab)),
             );
         }
         let mut body = column![].spacing(12).width(Length::Fill);
         let field = |key: &str, value: String| -> Element<'_, Message> {
-            column![
-                self.label(key),
-                text(value).size(12).wrapping(text::Wrapping::WordOrGlyph)
+            row![
+                text(self.t(key)).size(11).color(muted).width(110),
+                text(value)
+                    .size(12)
+                    .wrapping(text::Wrapping::WordOrGlyph)
+                    .width(Length::Fill)
             ]
-            .spacing(5)
+            .spacing(12)
             .into()
         };
         if self.device_actions {
@@ -2894,28 +2921,14 @@ impl App {
                 );
         } else if self.info_tab == InspectorTab::Overview {
             let kinds = host.device_kinds();
-            let mut types = column![
-                self.label("device-kind"),
-                text(
-                    kinds
-                        .keys()
-                        .map(|k| self.t(k.key()))
-                        .collect::<Vec<_>>()
-                        .join(" / ")
-                )
-                .size(14)
-            ]
-            .spacing(6);
-            for evidence in kinds.values().flatten() {
-                types = types.push(text(evidence.clone()).size(11).color(muted));
-            }
-
-            body = body.push(
-                container(types)
-                    .padding(12)
-                    .width(Length::Fill)
-                    .style(style::subtle),
-            );
+            body = body.push(field(
+                "device-kind",
+                kinds
+                    .keys()
+                    .map(|k| self.t(k.key()))
+                    .collect::<Vec<_>>()
+                    .join(" / "),
+            ));
             if let Some(discovery) = &host.discovery {
                 let status = match discovery.state {
                     DiscoveryState::Reachable => format!(
@@ -2933,15 +2946,11 @@ impl App {
                         discovery.error.as_deref().unwrap_or("")
                     ),
                 };
-                body = body.push(
-                    container(field("icmp-result", status))
-                        .padding(12)
-                        .width(Length::Fill)
-                        .style(style::subtle),
-                );
+                body = body.push(field("icmp-result", status));
             }
             let merged = host.identity();
-            let mut identity = column![self.label("identity-evidence")].spacing(10);
+            let mut identity =
+                column![horizontal_rule(1), self.label("identity-evidence")].spacing(10);
             if !merged.conflicts.is_empty() {
                 identity = identity.push(
                     text(format!(
@@ -2955,34 +2964,62 @@ impl App {
                             .join(", ")
                     ))
                     .size(12)
-                    .color(style::ACCENT),
+                    .color(self.theme().palette().warning),
                 );
             }
-            for claim in merged.claims.iter().take(if self.identity_expanded {
-                usize::MAX
+            if self.identity_expanded {
+                for claim in &merged.claims {
+                    identity = identity
+                        .push(field(&claim.field, claim.value.clone()))
+                        .push(text(claim.sources.join(" / ")).size(11).color(muted));
+                    if claim.field == "mac" {
+                        identity = identity.push(
+                            button(text(self.t("copy-mac")).size(11))
+                                .style(button::text)
+                                .on_press(Message::Copy(claim.value.clone())),
+                        );
+                    }
+                }
+                for evidence in kinds.values().flatten() {
+                    identity = identity.push(text(evidence.clone()).size(11).color(muted));
+                }
             } else {
-                5
-            }) {
-                identity = identity
-                    .push(field(&claim.field, claim.value.clone()))
-                    .push(text(claim.sources.join(" / ")).size(10).color(muted));
-                if claim.field == "mac" {
-                    identity =
-                        identity.push(self.action("copy-mac", Message::Copy(claim.value.clone())));
+                for key in [
+                    "mac",
+                    "vendor",
+                    "manufacturer",
+                    "device-model",
+                    "device-serial",
+                    "device-firmware",
+                ] {
+                    if let Some(value) = merged.preferred(key) {
+                        identity = identity.push(field(key, value.to_owned()));
+                    }
+                }
+                if let Some(value) = merged.preferred("mac") {
+                    identity = identity.push(
+                        button(text(self.t("copy-mac")).size(11))
+                            .style(button::text)
+                            .on_press(Message::Copy(value.to_owned())),
+                    );
                 }
             }
             if merged.claims.is_empty() {
-                identity = identity.push(text(self.t("identity-empty")).size(12));
-            }
-            if merged.claims.len() > 5 {
-                identity = identity.push(self.action(
-                    if self.identity_expanded {
-                        "detail-collapse"
-                    } else {
-                        "identity-all"
-                    },
-                    Message::ToggleIdentity,
-                ));
+                identity = identity.push(text(self.t("identity-empty")).size(12).color(muted));
+            } else {
+                identity = identity.push(
+                    button(
+                        text(self.t(if self.identity_expanded {
+                            "detail-collapse"
+                        } else {
+                            "identity-all"
+                        }))
+                        .size(12),
+                    )
+                    .padding([6, 0])
+                    .style(button::text)
+                    .on_press(Message::ToggleIdentity),
+                );
             }
             if self.identity_expanded
                 && let Some(mac) = &host.mac
@@ -2992,13 +3029,9 @@ impl App {
                     .push(field("mac-state", mac.neighbor_state.clone()))
                     .push(field("observed", mac.observed_at.to_rfc3339()));
             }
-            body = body.push(
-                container(identity)
-                    .padding(12)
-                    .width(Length::Fill)
-                    .style(style::subtle),
-            );
-            let mut route_block = column![self.label("route-current")].spacing(10);
+            body = body.push(container(identity).width(Length::Fill));
+            let mut route_block =
+                column![horizontal_rule(1), self.label("route-current")].spacing(10);
             if let Some(route) = self.routes.get(&host.ip) {
                 route_block = route_block
                     .push(
@@ -3030,14 +3063,9 @@ impl App {
                 route_block =
                     route_block.push(text(self.t("route-not-loaded")).size(12).color(muted));
             }
-            body = body.push(
-                container(route_block)
-                    .padding(12)
-                    .width(Length::Fill)
-                    .style(style::subtle),
-            );
+            body = body.push(container(route_block).width(Length::Fill));
             if let Some(session) = &self.session {
-                let mut scope = column![self.label("scope")].spacing(8);
+                let mut scope = column![horizontal_rule(1), self.label("scope")].spacing(8);
                 for index in &host.blocks {
                     if let Some(block) = session.plan.blocks.get(*index) {
                         scope = scope.push(text(block.name.clone()).size(13)).push(
@@ -3054,12 +3082,7 @@ impl App {
                         );
                     }
                 }
-                body = body.push(
-                    container(scope)
-                        .padding(12)
-                        .width(Length::Fill)
-                        .style(style::subtle),
-                );
+                body = body.push(container(scope).width(Length::Fill));
             }
         } else if self.info_tab == InspectorTab::Discovery {
             body = body.push(
@@ -3493,7 +3516,6 @@ impl App {
         container(
             column![
                 heading,
-                actions,
                 tabs,
                 horizontal_rule(1),
                 scrollable(
@@ -3502,15 +3524,17 @@ impl App {
                         .padding(iced::Padding::default().right(12))
                 )
                 .id("device-detail")
-                .height(Length::Fill)
+                .height(Length::Fill),
+                horizontal_rule(1),
+                actions,
             ]
-            .spacing(12),
+            .spacing(14),
         )
         .padding(16)
         .width(if self.width < 1200. {
             Length::Fill
         } else {
-            Length::Fixed(360.)
+            Length::Fixed(390.)
         })
         .height(Length::Fill)
         .style(style::surface)

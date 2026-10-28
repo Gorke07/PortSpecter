@@ -7,6 +7,32 @@ pub const GREEN: Color = Color::from_rgb(0.404, 0.851, 0.627);
 pub const AMBER: Color = Color::from_rgb(0.949, 0.776, 0.427);
 pub const RED: Color = Color::from_rgb(0.941, 0.502, 0.502);
 pub const MONO: iced::Font = iced::Font::with_name("JetBrains Mono");
+pub fn muted(theme: &Theme) -> Color {
+    if theme.extended_palette().is_dark {
+        MUTED
+    } else {
+        Color::from_rgb8(85, 102, 113)
+    }
+}
+pub fn inspector_tab(theme: &Theme, status: button::Status) -> button::Style {
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    button::Style {
+        background: hovered.then(|| theme.extended_palette().background.strong.color.into()),
+        text_color: muted(theme),
+        border: Border {
+            radius: 4.into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+pub fn inspector_tab_active(theme: &Theme, status: button::Status) -> button::Style {
+    button::Style {
+        background: Some(theme.extended_palette().background.strong.color.into()),
+        text_color: theme.palette().primary,
+        ..inspector_tab(theme, status)
+    }
+}
 pub fn window_control(theme: &Theme, status: button::Status, close: bool) -> button::Style {
     let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
     button::Style {
