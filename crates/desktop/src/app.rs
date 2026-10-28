@@ -1484,7 +1484,7 @@ impl App {
         text(self.t(key)).size(11).color(if self.light {
             Color::from_rgb8(80, 95, 105)
         } else {
-            style::MUTED
+            style::muted(&self.theme())
         })
     }
     fn action<'a>(&self, key: &str, message: Message) -> widget::Button<'a, Message> {
@@ -1508,7 +1508,10 @@ impl App {
             body = body.push(
                 container(
                     row![
-                        text(error).size(12).color(style::RED).width(Length::Fill),
+                        text(error)
+                            .size(12)
+                            .color(self.theme().palette().danger)
+                            .width(Length::Fill),
                         self.action("clear", Message::ClearError)
                     ]
                     .spacing(12)
@@ -1541,12 +1544,12 @@ impl App {
             )
             .size(11)
             .font(style::MONO),
-            text("/ ").size(11).color(style::MUTED),
+            text("/ ").size(11).color(style::muted(&self.theme())),
             text(self.status_label()).size(11),
             space::horizontal(),
             text("PortSpecter 0.1.0 · Community")
                 .size(11)
-                .color(style::MUTED)
+                .color(style::muted(&self.theme()))
         ]
         .spacing(8)
         .align_y(Alignment::Center);
@@ -1632,7 +1635,7 @@ impl App {
                         "local-first"
                     }))
                     .size(9)
-                    .color(style::MUTED),
+                    .color(style::muted(&self.theme())),
                 ]
                 .spacing(16)
                 .align_y(Alignment::Center),
@@ -1686,7 +1689,7 @@ impl App {
             text("NETWORK WORKSPACE")
                 .size(9)
                 .font(style::MONO)
-                .color(style::ACCENT),
+                .color(self.theme().palette().primary),
             space::vertical().height(28),
             self.label("workspace")
         ]
@@ -1732,7 +1735,7 @@ impl App {
                     )
                     .size(11)
                     .font(style::MONO)
-                    .color(style::MUTED),
+                    .color(style::muted(&self.theme())),
                 );
         }
         nav = nav
@@ -1741,7 +1744,7 @@ impl App {
                 text("LOCAL · OFFLINE READY")
                     .size(9)
                     .font(style::MONO)
-                    .color(style::MUTED),
+                    .color(style::muted(&self.theme())),
             );
         container(nav)
             .padding([20, 12])
@@ -1753,7 +1756,9 @@ impl App {
     fn header(&self, title: &str, subtitle: &str) -> Element<'static, Message> {
         column![
             text(self.t(title)).size(25),
-            text(self.t(subtitle)).size(12).color(style::MUTED)
+            text(self.t(subtitle))
+                .size(12)
+                .color(style::muted(&self.theme()))
         ]
         .spacing(6)
         .into()
@@ -1967,7 +1972,7 @@ impl App {
                 session.plan.ports.len()
             ))
             .size(11)
-            .color(style::MUTED)
+            .color(style::muted(&self.theme()))
         ]
         .spacing(4)
         .width(Length::Fill);
@@ -2064,7 +2069,7 @@ impl App {
                     "known-ports-help"
                 }))
                 .size(11)
-                .color(style::MUTED),
+                .color(style::muted(&self.theme())),
             );
         } else {
             right = right.push(
@@ -2075,10 +2080,18 @@ impl App {
             );
         }
         if self.method == ScanMethod::TcpSyn {
-            right = right.push(text(self.t("syn-help")).size(11).color(style::MUTED));
+            right = right.push(
+                text(self.t("syn-help"))
+                    .size(11)
+                    .color(style::muted(&self.theme())),
+            );
         }
         if self.method == ScanMethod::Udp && !self.known_ports {
-            right = right.push(text(self.t("udp-help")).size(11).color(style::MUTED));
+            right = right.push(
+                text(self.t("udp-help"))
+                    .size(11)
+                    .color(style::muted(&self.theme())),
+            );
         }
         let mut actions = row![].spacing(8);
         if self.session.is_some() {
@@ -2147,7 +2160,7 @@ impl App {
             ))
             .font(style::MONO)
             .size(11)
-            .color(style::MUTED)
+            .color(style::muted(&self.theme()))
             .width(Length::Fill),
             self.action("advanced", Message::Advanced),
             self.action("import", Message::Import)
@@ -2162,7 +2175,9 @@ impl App {
                 column![
                     target_tools,
                     target_editor,
-                    text(self.t("targets-help")).size(10).color(style::MUTED)
+                    text(self.t("targets-help"))
+                        .size(10)
+                        .color(style::muted(&self.theme()))
                 ]
                 .spacing(7)
                 .width(Length::FillPortion(3)),
@@ -2244,7 +2259,9 @@ impl App {
             .max(0);
         column![
             row![
-                text(self.status_label()).size(12).color(style::ACCENT),
+                text(self.status_label())
+                    .size(12)
+                    .color(self.theme().palette().primary),
                 text(format!(
                     "{responding} {}  ·  {open} {}",
                     self.t("active-devices"),
@@ -2325,7 +2342,7 @@ impl App {
                     text(self.t("scan-ready-title")).size(21),
                     text(self.t("scan-ready-note"))
                         .size(13)
-                        .color(style::MUTED)
+                        .color(style::muted(&self.theme()))
                         .width(480),
                     container(
                         column![
@@ -2529,7 +2546,9 @@ impl App {
                 container(
                     column![
                         text(self.t("no-results")).size(16),
-                        text(self.t("no-results-hint")).size(12).color(style::MUTED),
+                        text(self.t("no-results-hint"))
+                            .size(12)
+                            .color(style::muted(&self.theme())),
                         button(text(self.t("show-all-results")).size(12))
                             .style(style::secondary)
                             .padding([8, 12])
@@ -2613,7 +2632,7 @@ impl App {
                 }
             })
             .size(10)
-            .color(style::MUTED)
+            .color(style::muted(&self.theme()))
         ]
         .spacing(2)
         .width(170);
@@ -2671,7 +2690,7 @@ impl App {
                         .join(" / ")
                 )
                 .size(10)
-                .color(style::MUTED)
+                .color(style::muted(&self.theme()))
             ]
             .spacing(2)
             .width(Length::Fill),
@@ -2707,9 +2726,9 @@ impl App {
                 .font(style::MONO)
                 .size(11)
                 .color(if host.open_count() > 0 {
-                    style::ACCENT
+                    self.theme().palette().primary
                 } else {
-                    style::MUTED
+                    style::muted(&self.theme())
                 })
                 .width(140),
                 container(
@@ -3420,7 +3439,7 @@ impl App {
                             text(self.t(state))
                                 .size(11)
                                 .color(if port.state == PortState::Open {
-                                    style::GREEN
+                                    self.theme().palette().success
                                 } else {
                                     muted
                                 }),
@@ -3551,7 +3570,12 @@ impl App {
         ]
         .spacing(8);
         for log in self.logs.iter().take(20) {
-            logs = logs.push(text(log).size(11).font(style::MONO).color(style::MUTED));
+            logs = logs.push(
+                text(log)
+                    .size(11)
+                    .font(style::MONO)
+                    .color(style::muted(&self.theme())),
+            );
         }
         container(scrollable(logs))
             .height(140)
@@ -3569,7 +3593,11 @@ impl App {
             ]
             .spacing(12);
             for warning in &comparison.warnings {
-                details = details.push(text(self.t(warning)).size(13).color(style::ACCENT));
+                details = details.push(
+                    text(self.t(warning))
+                        .size(13)
+                        .color(self.theme().palette().primary),
+                );
             }
             if comparison.devices.is_empty() && comparison.ports.is_empty() {
                 details = details.push(text(self.t("compare-empty")).size(16));
@@ -3623,7 +3651,11 @@ impl App {
             ]);
         }
         if self.history.is_empty() {
-            items = items.push(text(self.t("history-empty")).size(14).color(style::MUTED));
+            items = items.push(
+                text(self.t("history-empty"))
+                    .size(14)
+                    .color(style::muted(&self.theme())),
+            );
         }
         for session in &self.history {
             let label = format!(
@@ -3683,7 +3715,7 @@ impl App {
                             ))
                             .size(11)
                             .font(style::MONO)
-                            .color(style::MUTED)
+                            .color(style::muted(&self.theme()))
                         ]
                         .spacing(6)
                         .width(Length::Fill),
@@ -3799,7 +3831,7 @@ impl App {
                                 }
                             )
                             .size(11)
-                            .color(style::MUTED)
+                            .color(style::muted(&self.theme()))
                         ]
                         .spacing(8)
                         .width(Length::Fill),
